@@ -1,7 +1,9 @@
+import argparse
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from queue import Queue
+
 
 SCP_MAP = {
     "WA": ["NT", "SA"],
@@ -231,19 +233,28 @@ class MACBacktrackSolver(CSPSolver):
         return revised
 
 
-def main():
-    # country_nodes = create_node_graph(SCP_MAP)
+SOLVER_TYPE_TO_CLASS = {
+    "backtrack": BacktrackSolver,
+    "mac_backtrack": MACBacktrackSolver,
+}
+
+
+def main(solver_type: str):
+    solver = SOLVER_TYPE_TO_CLASS[solver_type]
     graph = Graph(SCP_MAP)
+    completed_graph = solver(graph).solve()
     # completed_graph = BacktrackSolver(graph).solve()
-    completed_graph = MACBacktrackSolver(graph).solve()
-    # completed_graph = chronologic_backtrack(graph)
-    # completed_graph = edge_consistency_backtrack(graph)
-    # print(completed_graph)
-    # print(graph.get_all_unique_edges())
-    # ac3(graph)
-    print(graph.get_all_edges())
+    # completed_graph = MACBacktrackSolver(graph).solve()
+    # print(graph.get_all_edges())
+    print(graph.nodes)
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(prog='csp.py', description='')
+    parser.add_argument('-s', '--solver', action='store', default='backtrack',
+                        metavar='TYPE', type=str, choices=SOLVER_TYPE_TO_CLASS.keys(),
+                        help='Type of CSP method that is supposed to be used. Default: backtrack')
+    args = parser.parse_args()
+
+    main(args.solver)
