@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from queue import Queue
 
 SCP_MAP = {
     "WA": ["NT", "SA"],
@@ -28,6 +29,9 @@ class Node:
         self.neighbors = []
         self.available_colors = ALL_COLORS_LIST.copy()
 
+    def __eq__(self, other):
+        return self.name == other.name
+
     def __repr__(self) -> str:
         return f"<{self.name} | {self.color}>"
 
@@ -45,6 +49,10 @@ class Node:
             if neighbor.color == self.color:
                 return False
         return True
+
+    def do_color(self, color: Color):
+        self.color = color
+        self.available_colors = [color]
 
     def uncolored_neighbors(self) -> list['Node']:
         return [neighbor for neighbor in self.neighbors if neighbor.color is None]
@@ -100,6 +108,21 @@ class Graph:
                 return node
         return None
 
+    def get_all_edges(self) -> list[tuple[Node, Node]]:
+        edges = []
+        for node in self.nodes:
+            for neighbor in node.neighbors:
+                edges.append((node, neighbor))
+        return edges
+
+    # def get_all_unique_edges(self) -> set[set[Node]]:
+    #     edges = self.get_all_edges()
+    #     unique_edges = set()
+    #     for node in self.nodes:
+    #         for neighbor in node.neighbors:
+    #             unique_edges.add({node, neighbor})
+    #     return unique_edges
+
 
 def chronologic_backtrack(graph: Graph):
     # if complete, return
@@ -108,12 +131,12 @@ def chronologic_backtrack(graph: Graph):
         return graph
     unassigned_node = graph.get_unassigned_node()
     print(f"unassigned node: {unassigned_node}")
-    for color in unassigned_node.available_colors:
+    # for color in unassigned_node.available_colors:
+    for color in ALL_COLORS_LIST:
         unassigned_node.color = color
         print(f"newly assigned node: {unassigned_node}")
         if graph.check_nodes_constraints():
             print(f"constraints satisfied for {unassigned_node}")
-            # TODO copy graph
             result = chronologic_backtrack(graph)
             if result:
                 print("result found")
@@ -126,11 +149,83 @@ def chronologic_backtrack(graph: Graph):
     return None
 
 
+def edge_consistency_backtrack(graph: Graph):
+    # if complete, return
+    if graph.is_complete():
+        print("Graph is complete")
+        return graph
+    unassigned_node = graph.get_unassigned_node()
+    print(f"unassigned node: {unassigned_node}")
+    available_colors_backup = unassigned_node.available_colors.copy()
+    for color in available_colors_backup:
+        # unassigned_node.color = color
+        unassigned_node.do_color(color)
+        print(f"newly assigned node: {unassigned_node}")
+        if graph.check_nodes_constraints():
+            print(f"constraints satisfied for {unassigned_node}")
+            if ac3(graph):
+                print("AC3 consistent")
+                # TODO copy graph
+                result = edge_consistency_backtrack(graph)
+                if result:
+                    print("result found")
+                    return result
+                else:
+                    print("result NOT found")
+            else:
+                print("AC3 INconsistent")
+        else:
+            print(f"constraints NOT satisfied for {unassigned_node}")
+        # revert coloring
+        unassigned_node.color = None
+        unassigned_node.available_colors = available_colors_backup.copy()
+    return None
+
+
+def ac3(graph: Graph) -> bool:
+    all_edges = graph.get_all_edges()
+
+    queue = Queue()
+    for edge in all_edges:
+        queue.put(edge)
+
+    while not queue.empty():
+        node1, node2 = queue.get()
+        print(f"edge: {edge}")
+        node1_colors_backup = node1.available_colors.copy()
+        if revise(graph, node1, node2):
+            if len(node1.available_colors) == 0:
+                # revert removed potential colors
+                node1.available_colors = node1_colors_backup
+                return False
+            # for neighbor in node1.uncolored_neighbors():
+            for neighbor in node1.neighbors:
+                if neighbor != node2:
+                    queue.put((neighbor, node1))
+    return True
+
+
+def revise(graph, node1: Node, node2: Node) -> bool:
+    revised = False
+    for node1_color in node1.available_colors:
+        for node2_color in node2.available_colors:
+            if node1_color != node2_color:
+                # return False
+                break
+        node1.remove_potential_color(node1_color)
+        revised = True
+    return revised
+
+
 def main():
     # country_nodes = create_node_graph(SCP_MAP)
     graph = Graph(SCP_MAP)
-    completed_graph = chronologic_backtrack(graph)
-    print(completed_graph)
+    # completed_graph = chronologic_backtrack(graph)
+    completed_graph = edge_consistency_backtrack(graph)
+    # print(completed_graph)
+    # print(graph.get_all_unique_edges())
+    # ac3(graph)
+    print(graph.get_all_edges())
 
 
 # Press the green button in the gutter to run the script.
