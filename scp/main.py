@@ -52,6 +52,7 @@ class Node:
 
     def do_color(self, color: Color):
         self.color = color
+        # self.available_colors = []
         self.available_colors = [color]
 
     def uncolored_neighbors(self) -> list['Node']:
@@ -207,12 +208,17 @@ def ac3(graph: Graph) -> bool:
 
 def revise(graph, node1: Node, node2: Node) -> bool:
     revised = False
-    for node1_color in node1.available_colors:
+    # copying node1 colors, to avoid delete from a list which is being iterated
+    node1_colors_backup = node1.available_colors.copy()
+    for node1_color in node1_colors_backup:
+        remove_node1_color = True
         for node2_color in node2.available_colors:
             if node1_color != node2_color:
                 # return False
+                remove_node1_color = False
                 break
-        node1.remove_potential_color(node1_color)
+        if remove_node1_color:
+            node1.remove_potential_color(node1_color)
         revised = True
     return revised
 
