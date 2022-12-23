@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from queue import Queue
@@ -125,109 +126,118 @@ class Graph:
     #     return unique_edges
 
 
-def chronologic_backtrack(graph: Graph):
-    # if complete, return
-    if graph.is_complete():
-        print("Graph is complete")
-        return graph
-    unassigned_node = graph.get_unassigned_node()
-    print(f"unassigned node: {unassigned_node}")
-    # for color in unassigned_node.available_colors:
-    for color in ALL_COLORS_LIST:
-        unassigned_node.color = color
-        print(f"newly assigned node: {unassigned_node}")
-        if graph.check_nodes_constraints():
-            print(f"constraints satisfied for {unassigned_node}")
-            result = chronologic_backtrack(graph)
-            if result:
-                print("result found")
-                return result
-            else:
-                print("result not found")
-        else:
-            print(f"constraints NOT satisfied for {unassigned_node}")
-        unassigned_node.color = None
-    return None
+class CSPSolver(ABC):
+    def __init__(self, graph: Graph):
+        self.graph = graph
+
+    @abstractmethod
+    def solve(self) -> Graph:
+        pass
 
 
-def edge_consistency_backtrack(graph: Graph):
-    # if complete, return
-    if graph.is_complete():
-        print("Graph is complete")
-        return graph
-    unassigned_node = graph.get_unassigned_node()
-    print(f"unassigned node: {unassigned_node}")
-    available_colors_backup = unassigned_node.available_colors.copy()
-    for color in available_colors_backup:
-        # unassigned_node.color = color
-        unassigned_node.do_color(color)
-        print(f"newly assigned node: {unassigned_node}")
-        if graph.check_nodes_constraints():
-            print(f"constraints satisfied for {unassigned_node}")
-            if ac3(graph):
-                print("AC3 consistent")
-                # TODO copy graph
-                result = edge_consistency_backtrack(graph)
+class BacktrackSolver(CSPSolver):
+    def solve(self):
+        if self.graph.is_complete():
+            print("Graph is complete")
+            return self.graph
+        unassigned_node = self.graph.get_unassigned_node()
+        print(f"unassigned node: {unassigned_node}")
+        # for color in unassigned_node.available_colors:
+        for color in ALL_COLORS_LIST:
+            unassigned_node.color = color
+            print(f"newly assigned node: {unassigned_node}")
+            if self.graph.check_nodes_constraints():
+                print(f"constraints satisfied for {unassigned_node}")
+                result = self.solve()
                 if result:
                     print("result found")
                     return result
                 else:
-                    print("result NOT found")
+                    print("result not found")
             else:
-                print("AC3 INconsistent")
-        else:
-            print(f"constraints NOT satisfied for {unassigned_node}")
-        # revert coloring
-        unassigned_node.color = None
-        unassigned_node.available_colors = available_colors_backup.copy()
-    return None
+                print(f"constraints NOT satisfied for {unassigned_node}")
+            unassigned_node.color = None
+        return None
 
 
-def ac3(graph: Graph) -> bool:
-    all_edges = graph.get_all_edges()
+class MACBacktrackSolver(CSPSolver):
+    def solve(self):
+        if self.graph.is_complete():
+            print("Graph is complete")
+            return self.graph
+        unassigned_node = self.graph.get_unassigned_node()
+        print(f"unassigned node: {unassigned_node}")
+        available_colors_backup = unassigned_node.available_colors.copy()
+        for color in available_colors_backup:
+            # unassigned_node.color = color
+            unassigned_node.do_color(color)
+            print(f"newly assigned node: {unassigned_node}")
+            if self.graph.check_nodes_constraints():
+                print(f"constraints satisfied for {unassigned_node}")
+                if self.ac3(self.graph):
+                    print("AC3 consistent")
+                    # TODO copy graph
+                    result = self.solve()
+                    if result:
+                        print("result found")
+                        return result
+                    else:
+                        print("result NOT found")
+                else:
+                    print("AC3 INconsistent")
+            else:
+                print(f"constraints NOT satisfied for {unassigned_node}")
+            # revert coloring
+            unassigned_node.color = None
+            unassigned_node.available_colors = available_colors_backup.copy()
+        return None
 
-    queue = Queue()
-    for edge in all_edges:
-        queue.put(edge)
+    def ac3(self, graph: Graph) -> bool:
+        all_edges = graph.get_all_edges()
 
-    while not queue.empty():
-        node1, node2 = queue.get()
-        print(f"edge: {edge}")
+        queue = Queue()
+        for edge in all_edges:
+            queue.put(edge)
+
+        while not queue.empty():
+            node1, node2 = queue.get()
+            print(f"edge: {edge}")
+            node1_colors_backup = node1.available_colors.copy()
+            if self.revise(graph, node1, node2):
+                if len(node1.available_colors) == 0:
+                    # revert removed potential colors
+                    node1.available_colors = node1_colors_backup
+                    return False
+                # for neighbor in node1.uncolored_neighbors():
+                for neighbor in node1.neighbors:
+                    if neighbor != node2:
+                        queue.put((neighbor, node1))
+        return True
+
+    def revise(self, graph, node1: Node, node2: Node) -> bool:
+        revised = False
+        # copying node1 colors, to avoid delete from a list which is being iterated
         node1_colors_backup = node1.available_colors.copy()
-        if revise(graph, node1, node2):
-            if len(node1.available_colors) == 0:
-                # revert removed potential colors
-                node1.available_colors = node1_colors_backup
-                return False
-            # for neighbor in node1.uncolored_neighbors():
-            for neighbor in node1.neighbors:
-                if neighbor != node2:
-                    queue.put((neighbor, node1))
-    return True
-
-
-def revise(graph, node1: Node, node2: Node) -> bool:
-    revised = False
-    # copying node1 colors, to avoid delete from a list which is being iterated
-    node1_colors_backup = node1.available_colors.copy()
-    for node1_color in node1_colors_backup:
-        remove_node1_color = True
-        for node2_color in node2.available_colors:
-            if node1_color != node2_color:
-                # return False
-                remove_node1_color = False
-                break
-        if remove_node1_color:
-            node1.remove_potential_color(node1_color)
-        revised = True
-    return revised
+        for node1_color in node1_colors_backup:
+            remove_node1_color = True
+            for node2_color in node2.available_colors:
+                if node1_color != node2_color:
+                    # return False
+                    remove_node1_color = False
+                    break
+            if remove_node1_color:
+                node1.remove_potential_color(node1_color)
+            revised = True
+        return revised
 
 
 def main():
     # country_nodes = create_node_graph(SCP_MAP)
     graph = Graph(SCP_MAP)
+    # completed_graph = BacktrackSolver(graph).solve()
+    completed_graph = MACBacktrackSolver(graph).solve()
     # completed_graph = chronologic_backtrack(graph)
-    completed_graph = edge_consistency_backtrack(graph)
+    # completed_graph = edge_consistency_backtrack(graph)
     # print(completed_graph)
     # print(graph.get_all_unique_edges())
     # ac3(graph)
