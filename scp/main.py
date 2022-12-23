@@ -77,6 +77,9 @@ class Graph:
         for country_node in self.nodes:
             print(f"{country_node}: {country_node.neighbors}")
 
+    def __repr__(self) -> str:
+        return f"<Graph | {self.nodes}>"
+
     def check_nodes_constraints(self) -> bool:
         for node in self.nodes:
             if not node.check_constraints():
@@ -98,14 +101,36 @@ class Graph:
         return None
 
 
-def backtrack():
+def chronologic_backtrack(graph: Graph):
     # if complete, return
-    pass
+    if graph.is_complete():
+        print("Graph is complete")
+        return graph
+    unassigned_node = graph.get_unassigned_node()
+    print(f"unassigned node: {unassigned_node}")
+    for color in unassigned_node.available_colors:
+        unassigned_node.color = color
+        print(f"newly assigned node: {unassigned_node}")
+        if graph.check_nodes_constraints():
+            print(f"constraints satisfied for {unassigned_node}")
+            # TODO copy graph
+            result = chronologic_backtrack(graph)
+            if result:
+                print("result found")
+                return result
+            else:
+                print("result not found")
+        else:
+            print(f"constraints NOT satisfied for {unassigned_node}")
+        unassigned_node.color = None
+    return None
 
 
 def main():
     # country_nodes = create_node_graph(SCP_MAP)
     graph = Graph(SCP_MAP)
+    completed_graph = chronologic_backtrack(graph)
+    print(completed_graph)
 
 
 # Press the green button in the gutter to run the script.
