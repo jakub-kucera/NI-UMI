@@ -32,8 +32,16 @@ class Node:
         self.neighbors = []
         self.available_colors = ALL_COLORS_LIST.copy()
 
+    def __key(self):
+        return self.name
+
+    def __hash__(self):
+        return hash(self.__key())
+
     def __eq__(self, other):
-        return self.name == other.name
+        if isinstance(other, Node):
+            return self.__key() == other.__key()
+        return NotImplemented
 
     def __repr__(self) -> str:
         return f"<{self.name} | {self.color}>"
@@ -118,6 +126,15 @@ class Graph:
             for neighbor in node.neighbors:
                 edges.append((node, neighbor))
         return edges
+
+    def get_conflicts(self) -> set[Node]:
+        conflicts = set()
+        for node in self.nodes:
+            for neighbor in node.neighbors:
+                if node.color == neighbor.color:
+                    conflicts.add(node)
+                    conflicts.add(neighbor)
+        return conflicts
 
     # def get_all_unique_edges(self) -> set[set[Node]]:
     #     edges = self.get_all_edges()
@@ -233,18 +250,51 @@ class MACBacktrackSolver(CSPSolver):
         return revised
 
 
+class BackjumpSolver(CSPSolver):
+    def solve(self):
+        if self.graph.is_complete():
+            print("Graph is complete")
+            return self.graph, set()
+
+        unassigned_node = self.graph.get_unassigned_node()
+        print(f"unassigned node: {unassigned_node}")
+        conflict_set: set[Node] = set()
+        # answer = False
+        for color in unassigned_node.available_colors:
+            unassigned_node.color = color
+            print(f"newly assigned node: {unassigned_node}")
+            if self.graph.check_nodes_constraints():
+                print(f"constraints satisfied for {unassigned_node}")
+                result, new_conflict_set = self.solve()
+                # answer, new_conflict_set = self.solve()
+            else:
+                print(f"constraints NOT satisfied for {unassigned_node}")
+                new_conflict_set = self.graph.get_conflicts()
+            if self.graph.check_nodes_constraints():
+            # if answer:
+                return self.graph, set()
+            elif unassigned_node not in new_conflict_set:
+                # unassigned_node.color = None
+                return self.graph, new_conflict_set
+            else:
+                conflict_set = conflict_set.union(new_conflict_set - {unassigned_node})
+            unassigned_node.color = None
+        return self.graph, conflict_set
+
 SOLVER_TYPE_TO_CLASS = {
     "backtrack": BacktrackSolver,
+    "backjump": BackjumpSolver,
     "mac_backtrack": MACBacktrackSolver,
 }
 
 
 def main(solver_type: str):
-    solver = SOLVER_TYPE_TO_CLASS[solver_type]
+    # solver = SOLVER_TYPE_TO_CLASS[solver_type]
     graph = Graph(SCP_MAP)
-    completed_graph = solver(graph).solve()
+    # completed_graph = solver(graph).solve()
     # completed_graph = BacktrackSolver(graph).solve()
     # completed_graph = MACBacktrackSolver(graph).solve()
+    BackjumpSolver(graph).solve()
     # print(graph.get_all_edges())
     print(graph.nodes)
 
@@ -253,8 +303,9 @@ def main(solver_type: str):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='csp.py', description='')
     parser.add_argument('-s', '--solver', action='store', default='backtrack',
-                        metavar='TYPE', type=str, choices=SOLVER_TYPE_TO_CLASS.keys(),
-                        help='Type of CSP method that is supposed to be used. Default: backtrack')
+                        metavar='METHOD', type=str, choices=SOLVER_TYPE_TO_CLASS.keys(),
+                        help='Type of CSP method that is supposed to be used. Options:[`backtrack`, `mac_backtrack`] '
+                             'Default: backtrack')
     args = parser.parse_args()
 
     main(args.solver)
